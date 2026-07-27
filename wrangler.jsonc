@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "snakeeyes-trakt",
+  "main": "index.js",
+  "compatibility_date": "2026-07-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "kv_namespaces": [
+    {
+      "binding": "TRAKT_TOKENS",
+      "id": "7a8b6cfda246487293afcaa5913069fc"
+    }
+  ]
+}
