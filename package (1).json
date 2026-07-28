@@ -1,0 +1,17 @@
+{
+  "name": "snakeeyes-trakt",
+  "version": "1.0.0",
+  "description": "Snakeeyes Trakt Stremio Addon",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "2.8.6",
+    "express": "4.22.2",
+    "node-fetch": "2.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
