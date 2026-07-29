@@ -1,6 +1,0 @@
-services:
-  - type: web
-    name: https-stremiotrakt-addon
-    runtime: node
-    buildCommand: npm install
-    startCommand: node index.js
