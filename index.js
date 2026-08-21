@@ -82,7 +82,7 @@ app.get('/', (req, res) => {
     .code { font-size: 2em; font-weight: bold; color: #ed1c24; letter-spacing: 4px; margin: 15px 0; }
     .url-box { background: #111; padding: 12px; border-radius: 6px; word-break: break-all; font-family: monospace; font-size: 0.9em; margin: 10px 0; }
     #step1 { display: block; } #step2, #step3 { display: none; }
-    .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid #444; border-top-color: #ed1c24; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid #444; border-top-color: #ed1c24; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -131,7 +131,8 @@ app.get('/', (req, res) => {
       document.getElementById('step3').style.display = 'block';
       const manifestUrl = BASE_URL + '/' + userKey + '/manifest.json';
       document.getElementById('manifestUrl').textContent = manifestUrl;
-      document.getElementById('installBtn').href = 'stremio://' + manifestUrl.replace('https://', '').replace('http://', '');
+      const addonId = 'community.snakeeyes.trakt';
+      document.getElementById('installBtn').href = 'stremio://' + addonId + '@' + manifestUrl;
     }
   </script>
 </body>
