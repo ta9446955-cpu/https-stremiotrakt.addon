@@ -55,10 +55,10 @@ const tmdbCatalogMap = {
     'tmdb-classic-comedies': 'discover/movie?with_genres=35&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-drama':    'discover/movie?with_genres=18&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-cartoons': 'discover/tv?with_genres=16&first_air_date.lte=1990-12-31&sort_by=vote_count.desc',
-    // Franchises - Using COLLECTION endpoints for precise results
+    // Franchises - Using COLLECTION endpoints for precise results with CORRECTED IDs
     'tmdb-marvel':           'collection/131295',
     'tmdb-dc':               'collection/86311',
-    'tmdb-starwars':         'collection/10',
+    'tmdb-starwars':         'collection/9744',
     'tmdb-lotr':             'collection/119',
     'tmdb-harrypotter':      'collection/80960',
     'tmdb-jurassicpark':     'collection/328',
@@ -280,7 +280,7 @@ function simklItemToMeta(item, type) {
     };
 }
 
-// ── Landing page ──────────────────────────────────────────────────────────────
+// ── Landing page ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
     const authUrl = `https://simkl.com/oauth/authorize?response_type=code&client_id=${SIMKL_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
     res.send(`<!DOCTYPE html>
@@ -307,7 +307,7 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-// ── Auth callback ──────────────────────────────────────────────────────────────
+// ── Auth callback ────────────────────────────────────────────────────────────
 app.get('/auth/callback', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.send('Error: no code received.');
@@ -357,14 +357,14 @@ app.get('/auth/callback', async (req, res) => {
     }
 });
 
-// ── User manifest ──────────────────────────────────────────────────────────────
+// ── User manifest ────────────────────────────────────────────────────────────
 app.get('/:userKey/manifest.json', (req, res) => {
     const { userKey } = req.params;
     if (!tokenStore[userKey]) return res.status(404).json({ error: 'User not found. Please reconnect.' });
     res.json(buildManifest(userKey));
 });
 
-// ── Catalog ────────────────────────────────────────────────────────────────────
+// ── Catalog ──────────────────────────────────────────────────────────────────
 app.get('/:userKey/catalog/:type/:catalogId.json', async (req, res) => {
     const { userKey, type, catalogId } = req.params;
     const userData = tokenStore[userKey];
@@ -410,7 +410,7 @@ app.get('/:userKey/catalog/:type/:catalogId.json', async (req, res) => {
     }
 });
 
-// ── Meta ────────────────────────────────────────────────────────────────────────
+// ── Meta ────────────────────────────────────────────────────────────────────
 app.get('/:userKey/meta/:type/:id.json', async (req, res) => {
     const { type, id } = req.params;
     try {
@@ -425,7 +425,7 @@ app.get('/:userKey/meta/:type/:id.json', async (req, res) => {
     res.json({ meta: { id, type } });
 });
 
-// ── Health ──────────────────────────────────────────────────────────────────────
+// ── Health ──────────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
