@@ -37,7 +37,7 @@ function saveTokens(store) {
 
 const tokenStore = loadTokens();
 
-// ── TMDB catalog map ──────────────────────────────────────────────────────────
+// ── TMDB catalog map ────────────────────────────────────────────────────────
 const tmdbCatalogMap = {
     // Award Winning
     'tmdb-oscar-movies':     'discover/movie?with_awards=true&sort_by=vote_count.desc',
@@ -74,7 +74,7 @@ const tmdbCatalogMap = {
     'tmdb-will-smith':       'person/2888/movie_credits',
 };
 
-// ── Manifest builder ──────────────────────────────────────────────────────────
+// ── Manifest builder ────────────────────────────────────────────────────────
 function buildManifest(userKey) {
     return {
         id: 'community.snakeeyes.simkl',
@@ -130,7 +130,7 @@ function buildManifest(userKey) {
     };
 }
 
-// ── Simkl API helper ──────────────────────────────────────────────────────────
+// ── Simkl API helper ────────────────────────────────────────────────────────
 async function simklGet(path, accessToken) {
     const res = await fetch(`https://api.simkl.com${path}`, {
         headers: {
@@ -146,7 +146,7 @@ async function simklGet(path, accessToken) {
     return res.json();
 }
 
-// ── TMDB API helper ───────────────────────────────────────────────────────────
+// ── TMDB API helper ────────────────────────────────────────────────────────
 async function tmdbFetch(endpoint, type) {
     if (!TMDB_API_KEY) return [];
     const separator = endpoint.includes('?') ? '&' : '?';
@@ -185,6 +185,35 @@ async function tmdbFetch(endpoint, type) {
         }));
 }
 
+// ── TMDB Detail fetcher ────────────────────────────────────────────────────────
+async function getTmdbDetails(imdbId, type) {
+    if (!TMDB_API_KEY) return null;
+    try {
+        const cleanId = imdbId.replace(/^tt/, '');
+        const endpoint = type === 'movie' ? `movie/${cleanId}` : `tv/${cleanId}`;
+        const url = `https://api.themoviedb.org/3/${endpoint}?api_key=${TMDB_API_KEY}&external_source=imdb_id`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        
+        return {
+            id: imdbId,
+            type: type,
+            name: data.title || data.name,
+            poster: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
+            background: data.backdrop_path ? `https://image.tmdb.org/t/p/w1280${data.backdrop_path}` : null,
+            description: data.overview,
+            releaseInfo: data.release_date ? data.release_date.slice(0, 4) : (data.first_air_date ? data.first_air_date.slice(0, 4) : undefined),
+            rating: data.vote_average ? Math.round(data.vote_average * 10) : undefined,
+            genres: data.genres ? data.genres.map(g => g.name) : [],
+            runtime: data.runtime || data.episode_run_time?.[0]
+        };
+    } catch (e) {
+        console.error('Error fetching TMDB details:', e.message);
+        return null;
+    }
+}
+
 // ── Convert Simkl item to Stremio meta ────────────────────────────────────────
 function simklItemToMeta(item, type) {
     const obj = item.movie || item.show;
@@ -200,7 +229,7 @@ function simklItemToMeta(item, type) {
     };
 }
 
-// ── Landing page ──────────────────────────────────────────────────────────────
+// ── Landing page ──────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
     const authUrl = `https://simkl.com/oauth/authorize?response_type=code&client_id=${SIMKL_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
     res.send(`<!DOCTYPE html>
@@ -227,7 +256,7 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-// ── Auth callback ─────────────────────────────────────────────────────────────
+// ── Auth callback ──────────────────────────────────────────────────────────
 app.get('/auth/callback', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.send('Error: no code received.');
@@ -277,14 +306,14 @@ app.get('/auth/callback', async (req, res) => {
     }
 });
 
-// ── User manifest ─────────────────────────────────────────────────────────────
+// ── User manifest ──────────────────────────────────────────────────────────
 app.get('/:userKey/manifest.json', (req, res) => {
     const { userKey } = req.params;
     if (!tokenStore[userKey]) return res.status(404).json({ error: 'User not found. Please reconnect.' });
     res.json(buildManifest(userKey));
 });
 
-// ── Catalog ───────────────────────────────────────────────────────────────────
+// ── Catalog ────────────────────────────────────────────────────────────
 app.get('/:userKey/catalog/:type/:catalogId.json', async (req, res) => {
     const { userKey, type, catalogId } = req.params;
     const userData = tokenStore[userKey];
@@ -330,12 +359,22 @@ app.get('/:userKey/catalog/:type/:catalogId.json', async (req, res) => {
     }
 });
 
-// ── Meta ──────────────────────────────────────────────────────────────────────
-app.get('/:userKey/meta/:type/:id.json', (req, res) => {
-    res.json({ meta: { id: req.params.id, type: req.params.type } });
+// ── Meta ────────────────────────────────────────────────────────────
+app.get('/:userKey/meta/:type/:id.json', async (req, res) => {
+    const { type, id } = req.params;
+    try {
+        const metaData = await getTmdbDetails(id, type);
+        if (metaData) {
+            return res.json({ meta: metaData });
+        }
+    } catch (e) {
+        console.error('Error fetching meta:', e.message);
+    }
+    // Fallback
+    res.json({ meta: { id, type } });
 });
 
-// ── Health ────────────────────────────────────────────────────────────────────
+// ── Health ──────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
