@@ -37,7 +37,7 @@ function saveTokens(store) {
 
 const tokenStore = loadTokens();
 
-// ── TMDB catalog map - Using Collection IDs instead of Keywords ────────────
+// ── TMDB catalog map - Using keyword search instead of collection IDs ────────
 const tmdbCatalogMap = {
     // Award Winning
     'tmdb-oscar-movies':     'discover/movie?with_awards=true&sort_by=vote_count.desc',
@@ -55,13 +55,13 @@ const tmdbCatalogMap = {
     'tmdb-classic-comedies': 'discover/movie?with_genres=35&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-drama':    'discover/movie?with_genres=18&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-cartoons': 'discover/tv?with_genres=16&first_air_date.lte=1990-12-31&sort_by=vote_count.desc',
-    // Franchises - Using COLLECTION endpoints with CORRECTED IDs
-    'tmdb-starwars':         'collection/10',        // Star Wars Collection (correct ID)
-    'tmdb-marvel':           'collection/86311',     // Avengers/Marvel Collection (correct ID)
-    'tmdb-dc':               'collection/263',       // The Dark Knight Collection (DC)
-    'tmdb-lotr':             'collection/119',       // Lord of the Rings
-    'tmdb-harrypotter':      'collection/1241',      // Harry Potter Collection (correct ID)
-    'tmdb-jurassicpark':     'collection/328',       // Jurassic Park/World Collection
+    // Franchises - Using keyword search with sort by popularity
+    'tmdb-starwars':         'discover/movie?with_keywords=10&sort_by=popularity.desc',
+    'tmdb-marvel':           'discover/movie?with_keywords=180547&sort_by=popularity.desc',
+    'tmdb-dc':               'discover/movie?with_keywords=9840&sort_by=popularity.desc',
+    'tmdb-lotr':             'discover/movie?with_keywords=852&sort_by=popularity.desc',
+    'tmdb-harrypotter':      'discover/movie?with_keywords=207&sort_by=popularity.desc',
+    'tmdb-jurassicpark':     'discover/movie?with_keywords=185&sort_by=popularity.desc',
     // Directors - using person ID with credits endpoint
     'tmdb-nolan':            'person/525/movie_credits',
     'tmdb-tarantino':        'person/138/movie_credits',
@@ -109,7 +109,7 @@ function buildManifest(userKey) {
             { type: 'movie',  id: 'tmdb-classic-comedies',   name: '🎬 Classic Comedies' },
             { type: 'movie',  id: 'tmdb-classic-drama',      name: '🎬 Classic Drama' },
             { type: 'series', id: 'tmdb-classic-cartoons',   name: '🎬 Classic Cartoons' },
-            // Franchises - CORRECTED IDs
+            // Franchises - Now using keyword search
             { type: 'movie',  id: 'tmdb-starwars',           name: '⚔️ Star Wars Collection' },
             { type: 'movie',  id: 'tmdb-marvel',             name: '🦸 Marvel Collection' },
             { type: 'movie',  id: 'tmdb-dc',                 name: '🦇 DC Collection' },
@@ -162,7 +162,7 @@ async function getImdbIdFromTmdb(tmdbId, type) {
     }
 }
 
-// ── TMDB API helper - Handle both collection and discover endpoints ────────
+// ── TMDB API helper - Handle discover and person endpoints ────────
 async function tmdbFetch(endpoint, type) {
     if (!TMDB_API_KEY) {
         console.error('TMDB_API_KEY is not set');
@@ -172,50 +172,16 @@ async function tmdbFetch(endpoint, type) {
     const separator = endpoint.includes('?') ? '&' : '?';
     const url = `https://api.themoviedb.org/3/${endpoint}${separator}api_key=${TMDB_API_KEY}`;
     
-    console.log(`Fetching TMDB endpoint: ${url}`);
+    console.log(`Fetching TMDB: ${url}`);
     
     try {
         const res = await fetch(url);
         if (!res.ok) {
-            console.error(`TMDB API error for ${endpoint}: ${res.status}`);
-            const errorText = await res.text();
-            console.error(`Error details: ${errorText}`);
+            console.error(`TMDB error ${res.status} for ${endpoint}`);
             return [];
         }
         
         const data = await res.json();
-        console.log(`TMDB response for ${endpoint}:`, JSON.stringify(data).substring(0, 300));
-
-        // Handle collection endpoint (returns parts array)
-        if (endpoint.includes('/collection/')) {
-            if (!data.parts || data.parts.length === 0) {
-                console.warn(`Collection ${endpoint} returned empty parts array`);
-                console.log('Full response:', JSON.stringify(data));
-                return [];
-            }
-            
-            console.log(`Collection has ${data.parts.length} total items`);
-            
-            const items = data.parts
-                .filter(item => item.poster_path)
-                .sort((a, b) => {
-                    const dateA = new Date(a.release_date || '0');
-                    const dateB = new Date(b.release_date || '0');
-                    return dateA - dateB;
-                });
-            
-            console.log(`Collection ${endpoint} returned ${items.length} items with posters`);
-            
-            return items.map(item => ({
-                id: `tmdb:${item.id}`,
-                tmdbId: item.id,
-                type: 'movie',
-                name: item.title,
-                poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
-                background: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
-                description: item.overview
-            }));
-        }
 
         // Handle person credits endpoint (returns cast/crew arrays)
         if (endpoint.includes('/movie_credits')) {
@@ -225,7 +191,7 @@ async function tmdbFetch(endpoint, type) {
                 .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
                 .slice(0, 50);
             
-            console.log(`Credits for ${endpoint} returned ${items.length} items`);
+            console.log(`Person credits returned ${items.length} movies`);
             
             return items.map(item => ({
                 id: `tmdb:${item.id}`,
@@ -238,9 +204,9 @@ async function tmdbFetch(endpoint, type) {
             }));
         }
 
-        // Standard discover endpoint
+        // Standard discover/search endpoint
         const results = (data.results || [])
-            .filter(item => item.id)
+            .filter(item => item.id && item.poster_path)
             .map(item => ({
                 id: `tmdb:${item.id}`,
                 tmdbId: item.id,
@@ -251,10 +217,10 @@ async function tmdbFetch(endpoint, type) {
                 description: item.overview
             }));
         
-        console.log(`Discover ${endpoint} returned ${results.length} items`);
+        console.log(`Discover returned ${results.length} items`);
         return results;
     } catch (e) {
-        console.error(`Error fetching ${endpoint}:`, e.message);
+        console.error(`TMDB fetch error: ${e.message}`);
         return [];
     }
 }
@@ -340,7 +306,7 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-// ── Auth callback ────────────────────────────────────────────────────────────
+// ── Auth callback ───────────────────────────────────────────────────────��────
 app.get('/auth/callback', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.send('Error: no code received.');
