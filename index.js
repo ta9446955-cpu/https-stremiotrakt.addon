@@ -55,7 +55,7 @@ const tmdbCatalogMap = {
     'tmdb-classic-comedies': 'discover/movie?with_genres=35&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-drama':    'discover/movie?with_genres=18&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-cartoons': 'discover/tv?with_genres=16&first_air_date.lte=1990-12-31&sort_by=vote_count.desc',
-    // Franchises - Using COLLECTION endpoints for precise results with CORRECTED IDs
+    // Franchises - Using COLLECTION endpoints for precise results
     'tmdb-marvel':           'collection/131295',
     'tmdb-dc':               'collection/86311',
     'tmdb-starwars':         'collection/9744',
@@ -164,66 +164,96 @@ async function getImdbIdFromTmdb(tmdbId, type) {
 
 // ── TMDB API helper - Handle both collection and discover endpoints ────────
 async function tmdbFetch(endpoint, type) {
-    if (!TMDB_API_KEY) return [];
-    const separator = endpoint.includes('?') ? '&' : '?';
-    const url = `https://api.themoviedb.org/3/${endpoint}${separator}api_key=${TMDB_API_KEY}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-        console.error(`TMDB API error for ${endpoint}: ${res.status}`);
+    if (!TMDB_API_KEY) {
+        console.error('TMDB_API_KEY is not set');
         return [];
     }
-    const data = await res.json();
+    
+    const separator = endpoint.includes('?') ? '&' : '?';
+    const url = `https://api.themoviedb.org/3/${endpoint}${separator}api_key=${TMDB_API_KEY}`;
+    
+    console.log(`Fetching TMDB endpoint: ${url}`);
+    
+    try {
+        const res = await fetch(url);
+        if (!res.ok) {
+            console.error(`TMDB API error for ${endpoint}: ${res.status}`);
+            const errorText = await res.text();
+            console.error(`Error details: ${errorText}`);
+            return [];
+        }
+        
+        const data = await res.json();
+        console.log(`TMDB response for ${endpoint}:`, JSON.stringify(data).substring(0, 200));
 
-    // Handle collection endpoint (returns parts array)
-    if (endpoint.includes('/collection/')) {
-        const items = (data.parts || [])
-            .filter(item => item.poster_path)
-            .sort((a, b) => {
-                const dateA = new Date(a.release_date || '0');
-                const dateB = new Date(b.release_date || '0');
-                return dateA - dateB;
-            });
-        return items.map(item => ({
-            id: `tmdb:${item.id}`,
-            tmdbId: item.id,
-            type: 'movie',
-            name: item.title,
-            poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
-            background: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
-            description: item.overview
-        }));
+        // Handle collection endpoint (returns parts array)
+        if (endpoint.includes('/collection/')) {
+            if (!data.parts || data.parts.length === 0) {
+                console.warn(`Collection ${endpoint} returned empty parts array`);
+                return [];
+            }
+            
+            const items = data.parts
+                .filter(item => item.poster_path)
+                .sort((a, b) => {
+                    const dateA = new Date(a.release_date || '0');
+                    const dateB = new Date(b.release_date || '0');
+                    return dateA - dateB;
+                });
+            
+            console.log(`Collection ${endpoint} returned ${items.length} items with posters`);
+            
+            return items.map(item => ({
+                id: `tmdb:${item.id}`,
+                tmdbId: item.id,
+                type: 'movie',
+                name: item.title,
+                poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
+                background: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
+                description: item.overview
+            }));
+        }
+
+        // Handle person credits endpoint (returns cast/crew arrays)
+        if (endpoint.includes('/movie_credits')) {
+            const items = [...(data.cast || []), ...(data.crew || [])]
+                .filter(item => item.poster_path)
+                .filter((item, index, self) => index === self.findIndex(t => t.id === item.id))
+                .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+                .slice(0, 50);
+            
+            console.log(`Credits for ${endpoint} returned ${items.length} items`);
+            
+            return items.map(item => ({
+                id: `tmdb:${item.id}`,
+                tmdbId: item.id,
+                type: 'movie',
+                name: item.title,
+                poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
+                background: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
+                description: item.overview
+            }));
+        }
+
+        // Standard discover endpoint
+        const results = (data.results || [])
+            .filter(item => item.id)
+            .map(item => ({
+                id: `tmdb:${item.id}`,
+                tmdbId: item.id,
+                type: type,
+                name: item.title || item.name,
+                poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
+                background: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
+                description: item.overview
+            }));
+        
+        console.log(`Discover ${endpoint} returned ${results.length} items`);
+        return results;
+    } catch (e) {
+        console.error(`Error fetching ${endpoint}:`, e.message);
+        return [];
     }
-
-    // Handle person credits endpoint (returns cast/crew arrays)
-    if (endpoint.includes('/movie_credits')) {
-        const items = [...(data.cast || []), ...(data.crew || [])]
-            .filter(item => item.poster_path)
-            .filter((item, index, self) => index === self.findIndex(t => t.id === item.id))
-            .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-            .slice(0, 50);
-        return items.map(item => ({
-            id: `tmdb:${item.id}`,
-            tmdbId: item.id,
-            type: 'movie',
-            name: item.title,
-            poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
-            background: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
-            description: item.overview
-        }));
-    }
-
-    // Standard discover endpoint
-    return (data.results || [])
-        .filter(item => item.id)
-        .map(item => ({
-            id: `tmdb:${item.id}`,
-            tmdbId: item.id,
-            type: type,
-            name: item.title || item.name,
-            poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
-            background: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
-            description: item.overview
-        }));
 }
 
 // ── TMDB Detail fetcher ───────────────────────────────────────────────────────
