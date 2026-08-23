@@ -146,6 +146,22 @@ async function simklGet(path, accessToken) {
     return res.json();
 }
 
+// ── Get IMDb ID from TMDB ID ────────────────────────────────────────────────
+async function getImdbIdFromTmdb(tmdbId, type) {
+    if (!TMDB_API_KEY) return null;
+    try {
+        const endpoint = type === 'movie' ? `movie/${tmdbId}` : `tv/${tmdbId}`;
+        const url = `https://api.themoviedb.org/3/${endpoint}?api_key=${TMDB_API_KEY}`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.imdb_id || null;
+    } catch (e) {
+        console.error('Error getting IMDb ID:', e.message);
+        return null;
+    }
+}
+
 // ── TMDB API helper ────────────────────────────────────────────────────────
 async function tmdbFetch(endpoint, type) {
     if (!TMDB_API_KEY) return [];
@@ -163,7 +179,8 @@ async function tmdbFetch(endpoint, type) {
             .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
             .slice(0, 50);
         return items.map(item => ({
-            id: `tt${item.id}`,
+            id: `tmdb:${item.id}`,
+            tmdbId: item.id,
             type: 'movie',
             name: item.title,
             poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
@@ -172,11 +189,12 @@ async function tmdbFetch(endpoint, type) {
         }));
     }
 
-    // Standard discover endpoint
+    // Standard discover endpoint - now storing TMDB ID
     return (data.results || [])
-        .filter(item => item.imdb_id || item.id)
+        .filter(item => item.id)
         .map(item => ({
-            id: `tt${item.imdb_id ? item.imdb_id.replace(/^tt/, '') : item.id}`,
+            id: `tmdb:${item.id}`,
+            tmdbId: item.id,
             type: type,
             name: item.title || item.name,
             poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
@@ -186,18 +204,28 @@ async function tmdbFetch(endpoint, type) {
 }
 
 // ── TMDB Detail fetcher ────────────────────────────────────────────────────────
-async function getTmdbDetails(imdbId, type) {
+async function getTmdbDetails(id, type) {
     if (!TMDB_API_KEY) return null;
     try {
-        const cleanId = imdbId.replace(/^tt/, '');
-        const endpoint = type === 'movie' ? `movie/${cleanId}` : `tv/${cleanId}`;
-        const url = `https://api.themoviedb.org/3/${endpoint}?api_key=${TMDB_API_KEY}&external_source=imdb_id`;
+        let tmdbId = id;
+        
+        // If it's a TMDB ID (starts with tmdb:)
+        if (id.startsWith('tmdb:')) {
+            tmdbId = id.replace('tmdb:', '');
+        } else {
+            // If it's an IMDb ID, we need to fetch the TMDB record first
+            const cleanId = id.replace(/^tt/, '');
+            tmdbId = cleanId;
+        }
+
+        const endpoint = type === 'movie' ? `movie/${tmdbId}` : `tv/${tmdbId}`;
+        const url = `https://api.themoviedb.org/3/${endpoint}?api_key=${TMDB_API_KEY}`;
         const res = await fetch(url);
         if (!res.ok) return null;
         const data = await res.json();
         
         return {
-            id: imdbId,
+            id: id,
             type: type,
             name: data.title || data.name,
             poster: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : null,
