@@ -37,7 +37,7 @@ function saveTokens(store) {
 
 const tokenStore = loadTokens();
 
-// ── TMDB catalog map - Using keyword search instead of collection IDs ────────
+// ── TMDB catalog map - Using Collection IDs from TMDB directly ────────────
 const tmdbCatalogMap = {
     // Award Winning
     'tmdb-oscar-movies':     'discover/movie?with_awards=true&sort_by=vote_count.desc',
@@ -55,13 +55,13 @@ const tmdbCatalogMap = {
     'tmdb-classic-comedies': 'discover/movie?with_genres=35&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-drama':    'discover/movie?with_genres=18&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-cartoons': 'discover/tv?with_genres=16&first_air_date.lte=1990-12-31&sort_by=vote_count.desc',
-    // Franchises - Using keyword search with sort by popularity
-    'tmdb-starwars':         'discover/movie?with_keywords=10&sort_by=popularity.desc',
-    'tmdb-marvel':           'discover/movie?with_keywords=180547&sort_by=popularity.desc',
-    'tmdb-dc':               'discover/movie?with_keywords=9840&sort_by=popularity.desc',
-    'tmdb-lotr':             'discover/movie?with_keywords=852&sort_by=popularity.desc',
-    'tmdb-harrypotter':      'discover/movie?with_keywords=207&sort_by=popularity.desc',
-    'tmdb-jurassicpark':     'discover/movie?with_keywords=185&sort_by=popularity.desc',
+    // Franchises - Using collection IDs
+    'tmdb-starwars':         'collection/10',
+    'tmdb-marvel':           'collection/86311',
+    'tmdb-dc':               'collection/8537',
+    'tmdb-lotr':             'collection/119',
+    'tmdb-harrypotter':      'collection/1241',
+    'tmdb-jurassicpark':     'collection/328',
     // Directors - using person ID with credits endpoint
     'tmdb-nolan':            'person/525/movie_credits',
     'tmdb-tarantino':        'person/138/movie_credits',
@@ -109,7 +109,7 @@ function buildManifest(userKey) {
             { type: 'movie',  id: 'tmdb-classic-comedies',   name: '🎬 Classic Comedies' },
             { type: 'movie',  id: 'tmdb-classic-drama',      name: '🎬 Classic Drama' },
             { type: 'series', id: 'tmdb-classic-cartoons',   name: '🎬 Classic Cartoons' },
-            // Franchises - Now using keyword search
+            // Franchises
             { type: 'movie',  id: 'tmdb-starwars',           name: '⚔️ Star Wars Collection' },
             { type: 'movie',  id: 'tmdb-marvel',             name: '🦸 Marvel Collection' },
             { type: 'movie',  id: 'tmdb-dc',                 name: '🦇 DC Collection' },
@@ -162,7 +162,7 @@ async function getImdbIdFromTmdb(tmdbId, type) {
     }
 }
 
-// ── TMDB API helper - Handle discover and person endpoints ────────
+// ── TMDB API helper - Handle collection, discover and person endpoints ────────
 async function tmdbFetch(endpoint, type) {
     if (!TMDB_API_KEY) {
         console.error('TMDB_API_KEY is not set');
@@ -182,6 +182,34 @@ async function tmdbFetch(endpoint, type) {
         }
         
         const data = await res.json();
+
+        // Handle collection endpoint (returns parts array)
+        if (endpoint.includes('/collection/')) {
+            if (!data.parts || data.parts.length === 0) {
+                console.warn(`Collection ${endpoint} has no parts`);
+                return [];
+            }
+            
+            const items = data.parts
+                .filter(item => item.poster_path)
+                .sort((a, b) => {
+                    const dateA = new Date(a.release_date || '0');
+                    const dateB = new Date(b.release_date || '0');
+                    return dateA - dateB;
+                });
+            
+            console.log(`Collection returned ${items.length} items with posters`);
+            
+            return items.map(item => ({
+                id: `tmdb:${item.id}`,
+                tmdbId: item.id,
+                type: 'movie',
+                name: item.title,
+                poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
+                background: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
+                description: item.overview
+            }));
+        }
 
         // Handle person credits endpoint (returns cast/crew arrays)
         if (endpoint.includes('/movie_credits')) {
@@ -306,7 +334,7 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-// ── Auth callback ───────────────────────────────────────────────────────��────
+// ── Auth callback ────────────────────────────────────────────────────────────
 app.get('/auth/callback', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.send('Error: no code received.');
