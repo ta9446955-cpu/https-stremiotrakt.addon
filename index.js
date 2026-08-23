@@ -55,13 +55,13 @@ const tmdbCatalogMap = {
     'tmdb-classic-comedies': 'discover/movie?with_genres=35&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-drama':    'discover/movie?with_genres=18&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-cartoons': 'discover/tv?with_genres=16&first_air_date.lte=1990-12-31&sort_by=vote_count.desc',
-    // Franchises - using correct TMDB keyword IDs
+    // Franchises - using CORRECT TMDB keyword IDs
     'tmdb-marvel':           'discover/movie?with_keywords=180547&sort_by=primary_release_date.asc',
-    'tmdb-dc':               'discover/movie?with_keywords=10527&sort_by=primary_release_date.asc',
-    'tmdb-starwars':         'discover/movie?with_keywords=10194&sort_by=primary_release_date.asc',
+    'tmdb-dc':               'discover/movie?with_keywords=156386&sort_by=primary_release_date.asc',
+    'tmdb-starwars':         'discover/movie?with_keywords=729&sort_by=primary_release_date.asc',
     'tmdb-lotr':             'discover/movie?with_keywords=818&sort_by=primary_release_date.asc',
-    'tmdb-harrypotter':      'discover/movie?with_keywords=4565&sort_by=primary_release_date.asc',
-    'tmdb-jurassicpark':     'discover/movie?with_keywords=1697&sort_by=primary_release_date.asc',
+    'tmdb-harrypotter':      'discover/movie?with_keywords=9672&sort_by=primary_release_date.asc',
+    'tmdb-jurassicpark':     'discover/movie?with_keywords=14943&sort_by=primary_release_date.asc',
     // Directors - using person ID with credits endpoint
     'tmdb-nolan':            'person/525/movie_credits',
     'tmdb-tarantino':        'person/138/movie_credits',
@@ -341,7 +341,7 @@ app.get('/:userKey/manifest.json', (req, res) => {
     res.json(buildManifest(userKey));
 });
 
-// ── Catalog ────────────────────────────────────────────────────────────────────
+// ── Catalog ────────────────────────────────────────────────────────────��───────
 app.get('/:userKey/catalog/:type/:catalogId.json', async (req, res) => {
     const { userKey, type, catalogId } = req.params;
     const userData = tokenStore[userKey];
