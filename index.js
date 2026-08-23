@@ -55,13 +55,13 @@ const tmdbCatalogMap = {
     'tmdb-classic-comedies': 'discover/movie?with_genres=35&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-drama':    'discover/movie?with_genres=18&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-cartoons': 'discover/tv?with_genres=16&first_air_date.lte=1990-12-31&sort_by=vote_count.desc',
-    // Franchises - Using COLLECTION endpoints for precise results
-    'tmdb-marvel':           'collection/131295',
-    'tmdb-dc':               'collection/86311',
-    'tmdb-starwars':         'collection/9744',
-    'tmdb-lotr':             'collection/119',
-    'tmdb-harrypotter':      'collection/80960',
-    'tmdb-jurassicpark':     'collection/328',
+    // Franchises - Using COLLECTION endpoints with CORRECTED IDs
+    'tmdb-starwars':         'collection/10',        // Star Wars Collection (correct ID)
+    'tmdb-marvel':           'collection/86311',     // Avengers/Marvel Collection (correct ID)
+    'tmdb-dc':               'collection/263',       // The Dark Knight Collection (DC)
+    'tmdb-lotr':             'collection/119',       // Lord of the Rings
+    'tmdb-harrypotter':      'collection/1241',      // Harry Potter Collection (correct ID)
+    'tmdb-jurassicpark':     'collection/328',       // Jurassic Park/World Collection
     // Directors - using person ID with credits endpoint
     'tmdb-nolan':            'person/525/movie_credits',
     'tmdb-tarantino':        'person/138/movie_credits',
@@ -109,10 +109,10 @@ function buildManifest(userKey) {
             { type: 'movie',  id: 'tmdb-classic-comedies',   name: '🎬 Classic Comedies' },
             { type: 'movie',  id: 'tmdb-classic-drama',      name: '🎬 Classic Drama' },
             { type: 'series', id: 'tmdb-classic-cartoons',   name: '🎬 Classic Cartoons' },
-            // Franchises
+            // Franchises - CORRECTED IDs
+            { type: 'movie',  id: 'tmdb-starwars',           name: '⚔️ Star Wars Collection' },
             { type: 'movie',  id: 'tmdb-marvel',             name: '🦸 Marvel Collection' },
             { type: 'movie',  id: 'tmdb-dc',                 name: '🦇 DC Collection' },
-            { type: 'movie',  id: 'tmdb-starwars',           name: '⚔️ Star Wars Collection' },
             { type: 'movie',  id: 'tmdb-lotr',               name: '💍 Lord of the Rings' },
             { type: 'movie',  id: 'tmdb-harrypotter',        name: '🧙 Harry Potter Collection' },
             { type: 'movie',  id: 'tmdb-jurassicpark',       name: '🦕 Jurassic Park Collection' },
@@ -184,14 +184,17 @@ async function tmdbFetch(endpoint, type) {
         }
         
         const data = await res.json();
-        console.log(`TMDB response for ${endpoint}:`, JSON.stringify(data).substring(0, 200));
+        console.log(`TMDB response for ${endpoint}:`, JSON.stringify(data).substring(0, 300));
 
         // Handle collection endpoint (returns parts array)
         if (endpoint.includes('/collection/')) {
             if (!data.parts || data.parts.length === 0) {
                 console.warn(`Collection ${endpoint} returned empty parts array`);
+                console.log('Full response:', JSON.stringify(data));
                 return [];
             }
+            
+            console.log(`Collection has ${data.parts.length} total items`);
             
             const items = data.parts
                 .filter(item => item.poster_path)
