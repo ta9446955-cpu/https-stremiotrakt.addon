@@ -37,7 +37,7 @@ function saveTokens(store) {
 
 const tokenStore = loadTokens();
 
-// ── TMDB catalog map ────────────────────────────────────────────────────────
+// ── TMDB catalog map - Using Collection IDs instead of Keywords ────────────
 const tmdbCatalogMap = {
     // Award Winning
     'tmdb-oscar-movies':     'discover/movie?with_awards=true&sort_by=vote_count.desc',
@@ -55,13 +55,13 @@ const tmdbCatalogMap = {
     'tmdb-classic-comedies': 'discover/movie?with_genres=35&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-drama':    'discover/movie?with_genres=18&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-cartoons': 'discover/tv?with_genres=16&first_air_date.lte=1990-12-31&sort_by=vote_count.desc',
-    // Franchises - using CORRECT TMDB keyword IDs
-    'tmdb-marvel':           'discover/movie?with_keywords=180547&sort_by=primary_release_date.asc',
-    'tmdb-dc':               'discover/movie?with_keywords=156386&sort_by=primary_release_date.asc',
-    'tmdb-starwars':         'discover/movie?with_keywords=729&sort_by=primary_release_date.asc',
-    'tmdb-lotr':             'discover/movie?with_keywords=818&sort_by=primary_release_date.asc',
-    'tmdb-harrypotter':      'discover/movie?with_keywords=9672&sort_by=primary_release_date.asc',
-    'tmdb-jurassicpark':     'discover/movie?with_keywords=14943&sort_by=primary_release_date.asc',
+    // Franchises - Using COLLECTION endpoints for precise results
+    'tmdb-marvel':           'collection/131295',
+    'tmdb-dc':               'collection/86311',
+    'tmdb-starwars':         'collection/10',
+    'tmdb-lotr':             'collection/119',
+    'tmdb-harrypotter':      'collection/80960',
+    'tmdb-jurassicpark':     'collection/328',
     // Directors - using person ID with credits endpoint
     'tmdb-nolan':            'person/525/movie_credits',
     'tmdb-tarantino':        'person/138/movie_credits',
@@ -162,20 +162,43 @@ async function getImdbIdFromTmdb(tmdbId, type) {
     }
 }
 
-// ── TMDB API helper ────────────────────────────────────────────────────────
+// ── TMDB API helper - Handle both collection and discover endpoints ────────
 async function tmdbFetch(endpoint, type) {
     if (!TMDB_API_KEY) return [];
     const separator = endpoint.includes('?') ? '&' : '?';
     const url = `https://api.themoviedb.org/3/${endpoint}${separator}api_key=${TMDB_API_KEY}`;
     const res = await fetch(url);
-    if (!res.ok) return [];
+    if (!res.ok) {
+        console.error(`TMDB API error for ${endpoint}: ${res.status}`);
+        return [];
+    }
     const data = await res.json();
+
+    // Handle collection endpoint (returns parts array)
+    if (endpoint.includes('/collection/')) {
+        const items = (data.parts || [])
+            .filter(item => item.poster_path)
+            .sort((a, b) => {
+                const dateA = new Date(a.release_date || '0');
+                const dateB = new Date(b.release_date || '0');
+                return dateA - dateB;
+            });
+        return items.map(item => ({
+            id: `tmdb:${item.id}`,
+            tmdbId: item.id,
+            type: 'movie',
+            name: item.title,
+            poster: item.poster_path ? `https://image.tmdb.org/t/p/w300${item.poster_path}` : null,
+            background: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
+            description: item.overview
+        }));
+    }
 
     // Handle person credits endpoint (returns cast/crew arrays)
     if (endpoint.includes('/movie_credits')) {
         const items = [...(data.cast || []), ...(data.crew || [])]
-            .filter(item => item.poster_path) // only items with posters
-            .filter((item, index, self) => index === self.findIndex(t => t.id === item.id)) // dedupe
+            .filter(item => item.poster_path)
+            .filter((item, index, self) => index === self.findIndex(t => t.id === item.id))
             .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
             .slice(0, 50);
         return items.map(item => ({
@@ -189,7 +212,7 @@ async function tmdbFetch(endpoint, type) {
         }));
     }
 
-    // Standard discover endpoint - now storing TMDB ID
+    // Standard discover endpoint
     return (data.results || [])
         .filter(item => item.id)
         .map(item => ({
@@ -341,7 +364,7 @@ app.get('/:userKey/manifest.json', (req, res) => {
     res.json(buildManifest(userKey));
 });
 
-// ── Catalog ────────────────────────────────────────────────────────────��───────
+// ── Catalog ────────────────────────────────────────────────────────────────────
 app.get('/:userKey/catalog/:type/:catalogId.json', async (req, res) => {
     const { userKey, type, catalogId } = req.params;
     const userData = tokenStore[userKey];
