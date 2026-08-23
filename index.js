@@ -55,12 +55,12 @@ const tmdbCatalogMap = {
     'tmdb-classic-comedies': 'discover/movie?with_genres=35&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-drama':    'discover/movie?with_genres=18&primary_release_date.lte=1990-12-31&sort_by=vote_count.desc',
     'tmdb-classic-cartoons': 'discover/tv?with_genres=16&first_air_date.lte=1990-12-31&sort_by=vote_count.desc',
-    // Franchises - using discover with correct keyword IDs
+    // Franchises - using correct TMDB keyword IDs
     'tmdb-marvel':           'discover/movie?with_keywords=180547&sort_by=primary_release_date.asc',
-    'tmdb-dc':               'discover/movie?with_keywords=9715,10527&sort_by=primary_release_date.asc',
-    'tmdb-starwars':         'discover/movie?with_keywords=6917&sort_by=primary_release_date.asc',
+    'tmdb-dc':               'discover/movie?with_keywords=10527&sort_by=primary_release_date.asc',
+    'tmdb-starwars':         'discover/movie?with_keywords=10194&sort_by=primary_release_date.asc',
     'tmdb-lotr':             'discover/movie?with_keywords=818&sort_by=primary_release_date.asc',
-    'tmdb-harrypotter':      'discover/movie?with_keywords=671&sort_by=primary_release_date.asc',
+    'tmdb-harrypotter':      'discover/movie?with_keywords=4565&sort_by=primary_release_date.asc',
     'tmdb-jurassicpark':     'discover/movie?with_keywords=1697&sort_by=primary_release_date.asc',
     // Directors - using person ID with credits endpoint
     'tmdb-nolan':            'person/525/movie_credits',
@@ -146,7 +146,7 @@ async function simklGet(path, accessToken) {
     return res.json();
 }
 
-// ── Get IMDb ID from TMDB ID ────────────────────────────────────────────────
+// ── Get IMDb ID from TMDB ID ────────────────────────────────────
 async function getImdbIdFromTmdb(tmdbId, type) {
     if (!TMDB_API_KEY) return null;
     try {
@@ -203,7 +203,7 @@ async function tmdbFetch(endpoint, type) {
         }));
 }
 
-// ── TMDB Detail fetcher ────────────────────────────────────────────────────────
+// ── TMDB Detail fetcher ───────────────────────────────────────────────────────
 async function getTmdbDetails(id, type) {
     if (!TMDB_API_KEY) return null;
     try {
@@ -257,7 +257,7 @@ function simklItemToMeta(item, type) {
     };
 }
 
-// ── Landing page ──────────────────────────────────────────────────────────
+// ── Landing page ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
     const authUrl = `https://simkl.com/oauth/authorize?response_type=code&client_id=${SIMKL_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
     res.send(`<!DOCTYPE html>
@@ -284,7 +284,7 @@ app.get('/', (req, res) => {
 </html>`);
 });
 
-// ── Auth callback ──────────────────────────────────────────────────────────
+// ── Auth callback ──────────────────────────────────────────────────────────────
 app.get('/auth/callback', async (req, res) => {
     const { code } = req.query;
     if (!code) return res.send('Error: no code received.');
@@ -334,14 +334,14 @@ app.get('/auth/callback', async (req, res) => {
     }
 });
 
-// ── User manifest ──────────────────────────────────────────────────────────
+// ── User manifest ──────────────────────────────────────────────────────────────
 app.get('/:userKey/manifest.json', (req, res) => {
     const { userKey } = req.params;
     if (!tokenStore[userKey]) return res.status(404).json({ error: 'User not found. Please reconnect.' });
     res.json(buildManifest(userKey));
 });
 
-// ── Catalog ────────────────────────────────────────────────────────────
+// ── Catalog ────────────────────────────────────────────────────────────────────
 app.get('/:userKey/catalog/:type/:catalogId.json', async (req, res) => {
     const { userKey, type, catalogId } = req.params;
     const userData = tokenStore[userKey];
@@ -387,7 +387,7 @@ app.get('/:userKey/catalog/:type/:catalogId.json', async (req, res) => {
     }
 });
 
-// ── Meta ────────────────────────────────────────────────────────────
+// ── Meta ────────────────────────────────────────────────────────────────────────
 app.get('/:userKey/meta/:type/:id.json', async (req, res) => {
     const { type, id } = req.params;
     try {
@@ -402,7 +402,7 @@ app.get('/:userKey/meta/:type/:id.json', async (req, res) => {
     res.json({ meta: { id, type } });
 });
 
-// ── Health ──────────────────────────────────────────────────────────
+// ── Health ──────────────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
