@@ -73,3 +73,4 @@
 
 ### Option 2: Install via URL
 1. Copy your addon's manifest URL:
+https://snakeeyes-trakt.onrender.com/manifest.json
