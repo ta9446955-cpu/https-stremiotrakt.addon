@@ -591,3 +591,8 @@ app.listen(PORT, () => {
     console.log(`📊 Health check: /health`);
     console.log(`🗑️ Clear cache: POST /clear-cache`);
 });
+'tmdb-conjuring':        { endpoint: 'collection', params: '616129', type: 'collection' },
+'tmdb-saw':              { endpoint: 'collection', params: '269722', type: 'collection' },
+{ type: 'movie',  id: 'tmdb-conjuring',          name: '👻 The Conjuring Universe' },
+{ type: 'movie',  id: 'tmdb-saw',                name: '🔪 Saw Franchise' },
+{ type: 'movie',  id: 'tmdb-finaldestination',   name: '💀 Final Destination Franchise' },'tmdb-finaldestination': { endpoint: 'collection', params: '636263', type: 'collection' },
